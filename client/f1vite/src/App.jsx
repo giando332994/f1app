@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import Alert from 'react-bootstrap/Alert'
+import Button from 'react-bootstrap/Button'
+import ProgressBar from 'react-bootstrap/ProgressBar'
 import Card from 'react-bootstrap/Card'
 import Container from 'react-bootstrap/Container'
 import Form from 'react-bootstrap/Form'
@@ -20,8 +22,29 @@ function App() {
   const [races, setRaces] = useState([])
   const [selectedRace, setSelectedRace] = useState('')
   
-  const [raceResults, setRaceResults] = useState([])
+  const [raceResults, setRaceResults] = useState([])  // Final race results
+  const [raceTimeline, setRaceTimeline] = useState([]) // Timeline of race updates
+  const [timelineIndex, setTimelineIndex] = useState(0) // Index to track the current position in the race timeline
+  const [isPlaying, setIsPlaying] = useState(false)
 
+  useEffect(() => {
+    if (isPlaying) {
+      const interval = setInterval(() => {  // Update the timeline index every x milliseconds
+        setTimelineIndex((prevIndex) => {
+          if (prevIndex >= raceTimeline.length - 1) {
+            setIsPlaying(false)
+            return prevIndex
+          }
+
+          return prevIndex + 1
+        })
+      }, 10)
+
+      return () => clearInterval(interval)
+    }
+  }, [isPlaying, raceTimeline.length])
+
+  
   useEffect(() => {
     async function loadDrivers() {
       try {
@@ -45,6 +68,9 @@ function App() {
         setError('') 
         setSelectedRace('') 
         setRaceResults([]) 
+        setRaceTimeline([])
+        setTimelineIndex(0)
+        setIsPlaying(false)
         const data = await API.getRaces(year) 
         setRaces(data) 
       } catch (requestError) { 
@@ -58,26 +84,42 @@ function App() {
     loadRaces() 
   }, [year])
   
-    useEffect(() => { 
-    async function loadRaceResult() { 
+  useEffect(() => { 
+    async function loadRaceFinalResults() { 
       if (!selectedRace) { 
         setRaceResults([]) 
+        setRaceTimeline([])
+        setTimelineIndex(0)
+        setIsPlaying(false)
         return 
       }
       try { 
         setLoading(true) 
         setError('')
-        const data = await API.getRaceResults(selectedRace) 
-        setRaceResults(data) 
+        setTimelineIndex(0)
+        setIsPlaying(false)
+
+        const [finalResults, timeline] = await Promise.all([
+          API.getRaceFinalResults(selectedRace),
+          API.getRaceResults(selectedRace), // Fetch both final results and timeline concurrently
+        ])
+
+        setRaceResults(finalResults)
+        setRaceTimeline(  // Sort the timeline by date to ensure chronological order
+          [...timeline].sort(
+            (first, second) => new Date(first.date) - new Date(second.date),
+          ),
+        )
       } catch (requestError) { 
         setError(requestError.message) 
         setRaceResults([]) 
+        setRaceTimeline([])
       } finally { 
         setLoading(false) 
       } 
     } 
     
-    loadRaceResult() 
+    loadRaceFinalResults() 
   }, [selectedRace])
   
 
@@ -95,6 +137,34 @@ function App() {
     setSelectedRace(event.target.value)
   }
 
+  const handleTimelineReset = () => {
+    setIsPlaying(false)
+    setTimelineIndex(0)
+  }
+
+  const timelinePositions = new Map() // Map to store the latest positions of drivers based on the timeline
+
+  raceTimeline.slice(0, timelineIndex + 1).forEach((result) => { // Iterate through the timeline up to the current index
+    timelinePositions.set(result.driver_number, result)
+  })
+
+  const isFinalUpdate =
+    raceTimeline.length > 0 &&
+    timelineIndex === raceTimeline.length - 1
+
+  const timelineProgress =
+    raceTimeline.length > 0
+      ? ((timelineIndex + 1) / raceTimeline.length) * 100
+      : 0
+
+  const displayedResults =  // Determine which results to display based on the current state
+    raceTimeline.length > 0 && !isFinalUpdate && (isPlaying || timelineIndex > 0)
+      ? [...timelinePositions.values()].sort(
+          (first, second) => first.position - second.position,
+        )
+      : raceResults // Display final results if the race is finished or if the timeline is not being played
+
+      
   return (
     // <Container className="py-5">
     //   <Card className="mx-auto" style={{ maxWidth: '560px' }}>
@@ -212,9 +282,53 @@ function App() {
               </span>
             </Alert>
           )}
-          {raceResults.length > 0 && (
+
+          {raceTimeline.length > 0 && (
+            <div className="mt-4 d-flex align-items-center gap-3">
+              <Button
+                variant={isPlaying ? 'danger' : 'success'}
+                onClick={() => {
+                  if (isPlaying) {
+                    setIsPlaying(false)
+                  } else {
+                    if (timelineIndex >= raceTimeline.length - 1) {
+                      setTimelineIndex(0)
+                    }
+                    setIsPlaying(true)
+                  }
+                }}
+              >
+                {isPlaying ? 'Pause' : 'Play'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={handleTimelineReset}
+                disabled={!isPlaying && timelineIndex === 0}
+              >
+                Reset
+              </Button>
+              {/* <small>
+                Update {timelineIndex + 1} of {raceTimeline.length}
+              </small> */}
+              <div className="flex-grow-1">
+                <ProgressBar
+                  now={timelineProgress}
+                  min={0}
+                  max={100}
+                  aria-label="Race progression"
+                />
+              </div>
+            </div>
+          )}
+
+          {displayedResults.length > 0 && (
             <div className="mt-4">
-              <h2 className="h5">Race Results</h2>
+              <h2 className="h5">
+                {isFinalUpdate || timelineIndex === 0
+                  ? 'Race Results'
+                  : 'Race Progression'}
+              </h2>
 
               <table className="table table-striped">
                 <thead>
@@ -226,7 +340,7 @@ function App() {
                 </thead>
                 
                 <tbody>
-                  {raceResults.map((result) => {
+                  {displayedResults.map((result) => {
                     const driver = drivers.find(
                       (d) => d.driver_number === result.driver_number
                     )

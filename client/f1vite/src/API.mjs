@@ -20,13 +20,22 @@ const getRaces = async (year) => {
   return await response.json()
 }
 
-const getRaceResults = async (sessionKey) => {
+const getRaceFinalResults = async (sessionKey) => {
   const response = await fetch(`${API_BASE_URL}/races/${sessionKey}/finalresults`)
 
   if (!response.ok) {
     throw new Error('Unable to load race results')
   }
 
+  return await response.json()
+}
+
+const getRaceResults = async (sessionKey) => {
+  const response = await fetch(`${API_BASE_URL}/races/${sessionKey}/results`)
+
+  if (!response.ok) {
+    throw new Error('Unable to load race results')
+  }
 
   return await response.json()
 }
@@ -34,6 +43,7 @@ const getRaceResults = async (sessionKey) => {
 const API = {
   getDrivers,
   getRaces,
+  getRaceFinalResults,
   getRaceResults
 };
 
