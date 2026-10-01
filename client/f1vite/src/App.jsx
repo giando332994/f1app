@@ -47,8 +47,12 @@ function App() {
   
   useEffect(() => {
     async function loadDrivers() {
+      if (!selectedRace) {
+        setDrivers([])
+        return
+      }
       try {
-        const data = await API.getDrivers()
+        const data = await API.getDrivers(selectedRace)
         setDrivers(data)
       } catch (requestError) {
         setError(requestError.message)
@@ -58,7 +62,7 @@ function App() {
     }
 
     loadDrivers()
-  }, [])
+  }, [selectedRace]) // Re-run when selectedRace changes to ensure drivers are loaded for the selected race
 
   // Carica le gare dell'anno selezionato 
   useEffect(() => { 

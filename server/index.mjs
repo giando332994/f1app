@@ -84,8 +84,18 @@ app.get("/api/f1/sessions", async (req, res) => {
 
 app.get("/api/f1/drivers", async (req, res) => {
     try {
-        const url = `${OPENF1_URL}/drivers`;
+        const { sessionKey } = req.query;
 
+        if (!sessionKey) {
+            return res.status(400).json({
+                error: "sessionKey is required"
+            })
+        }
+        const url =
+            `${OPENF1_URL}/drivers` +
+            `?session_key=${encodeURIComponent(sessionKey)}`
+        console.log("URL:", url);
+        
         const response = await fetch(url);
         if (!response.ok) {
             return res.status(response.status).json({

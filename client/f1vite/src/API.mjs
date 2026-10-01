@@ -1,7 +1,7 @@
 const API_BASE_URL = 'http://localhost:3001/api/f1'
 
-const getDrivers = async () => {
-  const response = await fetch(`${API_BASE_URL}/drivers`)
+const getDrivers = async (sessionKey) => {
+  const response = await fetch(`${API_BASE_URL}/drivers?sessionKey=${sessionKey}`)
 
   if (!response.ok) {
     throw new Error('Unable to load drivers')
