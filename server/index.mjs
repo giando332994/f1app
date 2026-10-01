@@ -113,7 +113,7 @@ app.get("/api/f1/drivers", async (req, res) => {
 app.get("/api/f1/races", async (req, res) => {
     try {
         const { year } = req.query;
-        console.log("Year:", year);
+        // console.log("Year:", year);
         if (!year) {
             return res.status(400).json({
                 error: "Year is required"
@@ -214,7 +214,7 @@ app.get("/api/f1/races/:sessionKey/finalresults", async (req, res) => {
         const classification = [...latestPositions.values()]
             .sort((first, second) => first.position - second.position)
         
-        console.log("Classification:", classification);
+        // console.log("Classification:", classification);
         
         res.json(classification);
 
